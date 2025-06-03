@@ -1,0 +1,33 @@
+version: "3.9"
+
+services:
+  metabase:
+    image: metabase-local:v0.50.26
+    container_name: metabase-dev
+    environment:
+      MB_DB_TYPE: postgres
+      MB_DB_HOST: db
+      MB_DB_DBNAME: metabase
+      MB_DB_USER: metabase
+      MB_DB_PASS: metabase
+      MB_JETTY_PORT: 3000
+    ports:
+      - "3000:3000"
+    depends_on:
+      - db
+    volumes:
+      - plugins:/plugins   # hot-drop drivers if needed
+
+  db:
+    image: postgres:16
+    container_name: metabase-db
+    environment:
+      POSTGRES_USER: metabase
+      POSTGRES_PASSWORD: metabase
+      POSTGRES_DB: metabase
+    volumes:
+      - db-data:/var/lib/postgresql/data
+
+volumes:
+  db-data:
+  plugins:
