@@ -266,18 +266,11 @@
     (cond
       ;; if they're sandboxed OR if they're a superuser, ignore the setting and just give them nothing or everything,
       ;; respectively.
-      (premium-features/sandboxed-user?)
-      (just-me)
-
-      api/*is-superuser?*
-      (all)
+      (premium-features/sandboxed-user?) (just-me)
+      api/*is-superuser?* (all)
 
       ;; otherwise give them what the setting says on the tin
-      :else
-      (case (user-visibility)
-        :none (just-me)
-        :group (within-group)
-        :all (all)))))
+      :else (within-group)))) ; all others → group-mates only
 
 (defn- maybe-add-advanced-permissions
   "If `advanced-permissions` is enabled, add to `user` a permissions map."
