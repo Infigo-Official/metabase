@@ -2,6 +2,9 @@
 
 These instructions walk you through cloning Metabase, building the **v0.50.26** image, and running it locally with Docker Compose.
 
+> **NOTE!** Locally this won't run properly unless you have adjusted the crlf line endings that conform to the windows machine and there might be issues with that during the docker build image stage. This is why the test of all of this was done in Ubuntu VM that is inherently supports Linux and lf issues are non existent.
+
+
 ---
 
 ## Prerequisites
@@ -35,6 +38,8 @@ These instructions walk you through cloning Metabase, building the **v0.50.26** 
 
 Metabase’s build scripts expect Unix‑style line endings. Configure your local clone to ***input*** line endings so Git converts CRLF↔LF automatically:
 
+> **NOTE!** Do not push these changes on the github as this will mess the repository. This should only be done for local setup.
+
 ```bash
 # Set automatic line ending conversion to "input" for this repo only
  git config --local core.autocrlf input
@@ -60,7 +65,7 @@ Build the OSS edition of Metabase v0.50.26
 You can run just docker compose or do it manually using this command. Otherwise just skip to the next step
 
 ```bash
-   docker build -t metabase:v0.50.26 --build-arg MB_EDITION=oss --build-arg VERSION=local-$(git rev-parse --short HEAD) .
+   docker build -t metabase-local:v0.50.26 --build-arg MB_EDITION=oss --build-arg VERSION=local-$(git rev-parse --short HEAD) .
 ```
 
 🕒 The build typically completes in **5–10 minutes** (depending on network speed & CPU).
@@ -86,13 +91,14 @@ docker compose up -d --build   # rebuilds if needed, restarts stack
 ### 4.2 Create a minimal compose file (if you don’t have one)
 
 Paste the snippet below into `docker-compose.yml` at the project root:
+This is only meant for running locally.
 
 ```yaml
 version: "3.9"
 
 services:
   metabase:
-    image: metabase:v0.50.26
+    image: metabase-local:v0.50.26
     build:
       context: .                # repo root
       args:
