@@ -265,18 +265,11 @@
     (cond
       ;; if they're sandboxed OR if they're a superuser, ignore the setting and just give them nothing or everything,
       ;; respectively.
-      (perms/sandboxed-user?)
-      (just-me)
-
-      api/*is-superuser?*
-      (all)
+      (perms/sandboxed-user?) (just-me)
+      api/*is-superuser?* (all)
 
       ;; otherwise give them what the setting says on the tin
-      :else
-      (case (users.settings/user-visibility)
-        :none (just-me)
-        :group (within-group)
-        :all (all)))))
+      :else (within-group)))) ; all others → group-mates only
 
 (defn- add-query-permissions
   "Add `:can_create_queries` and `:can_create_native_queries` flags to user based on their create-queries
