@@ -13,3 +13,9 @@
 docs/api.json                  linguist-generated
 docs/api.html                  linguist-generated
 resources/openapi/openapi.json linguist-generated
+
+# Infigo: the Docker build COPYs the repo into a Linux image and executes bin/build.sh and
+# bin/docker/run_metabase.sh. On Windows checkouts core.autocrlf=true rewrites them to CRLF, which
+# makes the build die with "/usr/bin/env: 'bash\r': No such file or directory". Pin shell scripts
+# to LF so the build works regardless of the developer's autocrlf setting.
+*.sh text eol=lf
