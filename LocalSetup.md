@@ -30,19 +30,25 @@ cd metabase
 git checkout infigo_v0_63_15
 ```
 
-### Line endings
+### Line endings — required manual step before every build
 
-Nothing to do. `.gitattributes` pins `*.sh` to `eol=lf`, so shell scripts stay LF even with
-`core.autocrlf=true` on Windows.
-
-This used to be a manual step. Without it the build fails with:
+The repo is checked out with CRLF (`core.autocrlf=true`) and **stays that way** — CRLF everywhere is
+the convention here. The Docker build does not care what the convention is: it `COPY . .`s the tree
+into a Linux image and runs `bin/build.sh`, which dies on CRLF with
 
 ```
 /usr/bin/env: 'bash\r': No such file or directory
 ```
 
-because `COPY . .` puts CRLF scripts into a Linux image. If you ever see that error, your checkout
-predates the `.gitattributes` fix — renormalize:
+So convert the shell scripts to LF in your working tree before building:
+
+```bash
+git ls-files -z '*.sh' | xargs -0 sed -i 's/\r$//'
+file bin/build.sh    # must NOT say "with CRLF line terminators"
+```
+
+This is safe to leave in place. Git normalizes to LF on commit anyway, so the converted files show
+as unmodified in `git status` and cannot be committed by accident. To put CRLF back:
 
 ```bash
 git ls-files -z '*.sh' | xargs -0 rm -f
