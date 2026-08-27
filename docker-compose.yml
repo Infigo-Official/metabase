@@ -21,7 +21,7 @@ services:
     depends_on:
       db:
         condition: service_healthy
-    ports: ["3000:3000"]
+    ports: ["${MB_HOST_PORT:-3000}:3000"]
     environment:
       MB_DB_TYPE: postgres
       MB_DB_HOST: db
@@ -45,7 +45,7 @@ services:
       POSTGRES_USER: metabase
       POSTGRES_PASSWORD: metabase
       POSTGRES_DB: metabase
-    ports: ["55434:5432"]
+    ports: ["${MB_DB_HOST_PORT:-55434}:5432"]
     volumes:
       - db-data:/var/lib/postgresql/data
     healthcheck:
