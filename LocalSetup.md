@@ -40,7 +40,22 @@ into a Linux image and runs `bin/build.sh`, which dies on CRLF with
 /usr/bin/env: 'bash\r': No such file or directory
 ```
 
-So convert the shell scripts to LF in your working tree before building:
+So convert the shell scripts to LF in your working tree before building.
+
+**PowerShell** (`xargs` and `sed` do not exist there):
+
+```powershell
+$utf8NoBom = New-Object System.Text.UTF8Encoding $false
+foreach ($f in (git ls-files '*.sh')) {
+  $full = Join-Path (Get-Location) $f
+  $text = [System.IO.File]::ReadAllText($full)
+  [System.IO.File]::WriteAllText($full, ($text -replace "`r`n", "`n"), $utf8NoBom)
+}
+# verify - should print nothing
+git ls-files '*.sh' | Where-Object { [System.IO.File]::ReadAllBytes((Join-Path (Get-Location) $_)) -contains 13 }
+```
+
+**Git Bash / WSL:**
 
 ```bash
 git ls-files -z '*.sh' | xargs -0 sed -i 's/\r$//'
