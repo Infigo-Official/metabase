@@ -1,173 +1,184 @@
 # Metabase Local Setup (v0.63.15)
 
-How to build and run the Infigo fork locally.
+These instructions walk you through cloning Metabase, building the **v0.63.15** image, and running it locally with Docker Compose.
 
-Everything compiles **inside the Docker build**, so you do not need Node, Java or Clojure on your
-machine — only Docker. The versions the build uses (Node 22, Temurin 25 JDK, Clojure 1.12) are
-pinned in the `Dockerfile`.
+> **NOTE!** Locally this won't run properly unless you have adjusted the crlf line endings that conform to the windows machine and there might be issues with that during the docker build image stage. This is why the test of all of this was done in Ubuntu VM that is inherently supports Linux and lf issues are non existent.
+
+> **What it looks like when you get this wrong:** the build *succeeds*, every asset serves HTTP 200, `/api/health` returns 200 — and the page is blank, with no error anywhere. Webpack compiles the CRLF sources into an `app-main.js` that never mounts. The quickest tell is comparing bundle hashes with an official image of the same version: `vendor.js` will match (it comes from `bun install`) while `app-main.js` will not.
+
 
 ---
 
 ## Prerequisites
 
-| Tool | Minimum | Purpose |
-|------|---------|---------|
-| Docker Desktop | 20.10 | Build and run |
-| Docker Compose | 2.0 | Orchestrate the stack |
-| Git | any | Clone |
+| Tool               | Minimum Version | Purpose                                    |
+|--------------------| --------------- | ------------------------------------------ |
+| **Docker**         | 20.10           | Build & run containers                     |
+| **Docker Compose** | 2.0             | Orchestrate the Metabase stack             |
+| **Git**            | any             | Clone the repository & manage line‑endings |
 
-Give Docker plenty of headroom — the frontend build plus the Clojure uberjar is heavy. **8 GB RAM
-and ~20 GB free disk**, and expect **15–30 minutes** for a cold build. Later builds reuse layers and
-are much faster as long as `package.json` / `deps.edn` are untouched.
+> **Tip** On Windows or WSL 2, ensure Docker Desktop is running before you begin.
 
 ---
+---
 
-## 1. Clone and check out the branch
-
-```bash
-git clone https://github.com/Infigo-Official/metabase.git
-cd metabase
-git checkout infigo_v0_63_15
-```
-
-### Line endings — required manual step before every build
-
-The repo is checked out with CRLF (`core.autocrlf=true`) and **stays that way** — CRLF everywhere is
-the convention here. The Docker build does not care what the convention is: it `COPY . .`s the tree
-into a Linux image and runs `bin/build.sh`, which dies on CRLF with
-
-```
-/usr/bin/env: 'bash\r': No such file or directory
-```
-
-So convert the shell scripts to LF in your working tree before building.
-
-**PowerShell** (`xargs` and `sed` do not exist there):
-
-```powershell
-$utf8NoBom = New-Object System.Text.UTF8Encoding $false
-foreach ($f in (git ls-files '*.sh')) {
-  $full = Join-Path (Get-Location) $f
-  $text = [System.IO.File]::ReadAllText($full)
-  [System.IO.File]::WriteAllText($full, ($text -replace "`r`n", "`n"), $utf8NoBom)
-}
-# verify - should print nothing
-git ls-files '*.sh' | Where-Object { [System.IO.File]::ReadAllBytes((Join-Path (Get-Location) $_)) -contains 13 }
-```
-
-**Git Bash / WSL:**
+## 1 Clone the repository & check out the release tag
 
 ```bash
-git ls-files -z '*.sh' | xargs -0 sed -i 's/\r$//'
-file bin/build.sh    # must NOT say "with CRLF line terminators"
-```
+# 1. Clone the Metabase repo
+ git clone https://github.com/Infigo-Official/metabase.git
+ cd metabase
 
-This is safe to leave in place. Git normalizes to LF on commit anyway, so the converted files show
-as unmodified in `git status` and cannot be committed by accident. To put CRLF back:
-
-```bash
-git ls-files -z '*.sh' | xargs -0 rm -f
-git ls-files -z '*.sh' | xargs -0 git checkout --
+# 2. Check out the Infigo fork branch
+ git checkout infigo_v0_63_15
 ```
 
 ---
 
-## 2. Build and run
+## 2 Normalise line endings (recommended on Windows)
 
-From the repo root:
+Metabase’s build scripts expect Unix‑style line endings. Configure your local clone to ***input*** line endings so Git converts CRLF↔LF automatically:
 
-```bash
-docker compose up -d --build
-```
-
-That builds `infigo-metabase:v0.63.15` from this repo and starts it against a throwaway Postgres 17.
-Metabase comes up on <http://localhost:3000>; the database is exposed on host port `55434` so it
-cannot collide with other local Postgres containers.
-
-Watch it come up:
+> **NOTE!** Do not push these changes on the github as this will mess the repository. This should only be done for local setup.
 
 ```bash
-docker compose logs -f metabase
+# Set automatic line ending conversion to "input" for this repo only
+ git config --local core.autocrlf input
+
+# Verify the setting
+ git config core.autocrlf   # should output: input
 ```
 
-First boot runs the full application-database migration set and takes a few minutes.
-
-To build without running:
+> **IMPORTANT!** Setting the config does **not** rewrite files that are already on disk. If you cloned before setting it, re-checkout the working tree so the existing files are rewritten as LF:
 
 ```bash
-docker build -t infigo-metabase:v0.63.15 \
-  --build-arg MB_EDITION=oss \
-  --build-arg VERSION=v0.63.15 .
+git ls-files -z | xargs -0 rm -f
+git checkout -- .
 ```
 
-> `.dockerignore` excludes `.git`, so the build cannot read the version from git history. Always
-> pass `VERSION` explicitly — `docker-compose.yml` already does.
-
-Tear down, keeping data:
+Verify before building — neither file may report `CRLF line terminators`:
 
 ```bash
-docker compose down
+file bin/build.sh frontend/src/metabase/app-main.js
 ```
 
-Tear down and **delete** the database:
-
-```bash
-docker compose down -v
-```
+Cloning inside a Linux VM or WSL avoids all of this: a native Linux checkout is LF by construction, which is why the image is built there.
 
 ---
 
-## 3. Running against the richer local stack
+## 3 Build the Metabase Docker image
 
-If you already have a fuller local environment (SQL Server, a reporting Postgres, pgAdmin), build
-the image here and point that stack at the tag instead of the published one:
+Inside the repository root run:
+
+Build the OSS edition of Metabase v0.63.15
+
+You can run just docker compose or do it manually using this command. Otherwise just skip to the next step
+
+```bash
+   docker build -t infigo-metabase:v0.63.15 --build-arg MB_EDITION=oss --build-arg VERSION=local-$(git rev-parse --short HEAD) .
+```
+
+🕒 The build typically completes in **15–30 minutes** (depending on network speed & CPU).
+
+---
+
+## 4 Spin up Metabase with Docker Compose
+
+### 4.1 Use an existing compose file
+
+If your project already includes a suitable `docker-compose.yml`, simply run:
+
+```bash
+docker compose up -d   # starts Metabase in the background
+```
+
+or if you want to rebuild your changes use:
+
+```bash
+docker compose up -d --build   # rebuilds if needed, restarts stack
+```
+
+### 4.2 Create a minimal compose file (if you don’t have one)
+
+Paste the snippet below into `docker-compose.yml` at the project root:
+This is only meant for running locally.
 
 ```yaml
+version: "3.9"
+
 services:
   metabase:
-    image: infigo-metabase:v0.63.15   # was metabase/metabase:v0.50.26
+    image: infigo-metabase:v0.63.15
+    build:
+      context: .                # repo root
+      args:
+        MB_EDITION: oss
+    container_name: metabase-dev
+    environment:
+      MB_DB_TYPE: postgres
+      MB_DB_HOST: db
+      MB_DB_DBNAME: metabase
+      MB_DB_USER: metabase
+      MB_DB_PASS: metabase
+      MB_JETTY_PORT: 3000
+    ports:
+      - "3000:3000"
+    depends_on:
+      - db
+    volumes:
+      - plugins:/plugins   # hot-drop drivers if needed
+
+  db:
+    image: postgres:17
+    container_name: metabase-db
+    environment:
+      POSTGRES_USER: metabase
+      POSTGRES_PASSWORD: metabase
+      POSTGRES_DB: metabase
+    volumes:
+      - db-data:/var/lib/postgresql/data
+
+volumes:
+  db-data:
+  plugins:
 ```
 
-### Before you do that — read this
-
-An existing Metabase Postgres volume from an older version holds a **v0.50.26 application
-database**. Starting v0.63.15 against it runs the full 0.50 → 0.63 migration set, which is
-**one-way**. Metabase cannot downgrade an application database, so the old instance — its
-questions, dashboards, users and permissions — is gone the moment the new container boots. It is
-not recoverable by switching the image tag back.
-
-Keep the old instance by copying the volume first and running the new version against the copy:
+Then start the service:
 
 ```bash
-docker run --rm \
-  -v <old_volume>:/from -v metabase_063_pgdata:/to \
-  alpine sh -c "cd /from && cp -a . /to"
+docker compose up -d
 ```
-
-Then point the new stack's `db` service at `metabase_063_pgdata`.
-
-Doing this deliberately, on a **restored snapshot of a real application database**, is the single
-most useful pre-upgrade test available: it proves the migration path end to end and tells you how
-long the production maintenance window needs to be.
 
 ---
 
-## 4. Verify the fork's change is live
+## 5 Access Metabase
 
-```bash
-git diff --stat v0.63.15..infigo_v0_63_15
-# src/metabase/users_rest/api.clj | 13 +++----------
-```
-
-Then, against the running instance, as a user who is **not** an admin and **not** sandboxed:
-
-```
-GET /api/user/recipients
-```
-
-The response must contain only users sharing at least one group with the caller. On stock upstream
-OSS it returns every active user — that difference is the whole point of the fork. See `INFIGO.md`.
+Once the container is healthy, open your browser at **[http://localhost:3000](http://localhost:3000)** and complete the onboarding wizard.
 
 ---
 
-*All other drivers, versions, and unrelated code are not relevant to this setup.*
+## 6 Stopping & cleaning up
+
+```bash
+# Stop containers but keep data
+docker compose down
+
+# (Optional) remove the persistent volume
+# WARNING: this deletes any saved questions & configs!
+docker volume rm metabase-data
+```
+
+---
+
+## Troubleshooting
+
+| Symptom                        | Fix                                                                                                                      |
+| ------------------------------ |--------------------------------------------------------------------------------------------------------------------------|
+| Image build fails behind proxy | Set `HTTP_PROXY`/`HTTPS_PROXY` env vars before running `docker build`.                                                   |
+| Port **3000** already in use   | Change the left‑hand port in `ports:` (e.g. `- "4000:3000"`) & browse to [http://localhost:4000](http://localhost:4000). |
+| Container exits immediately    | Check logs with `docker compose logs -f` for errors such as incorrect Java version.                                      |
+| Page loads blank, no console error | CRLF line endings leaked into the build. See §2 — the build succeeds and serves 200s regardless. Re-checkout as LF and rebuild. |
+
+---
+
+🎉 You now have Metabase **v0.63.15** running locally. Happy exploring!
