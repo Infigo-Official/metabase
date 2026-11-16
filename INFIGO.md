@@ -88,7 +88,7 @@ File: `src/metabase/users_rest/api.clj`, in `defendpoint :get "/recipients"`.
 |------|------|---------|---------|
 | `infigo_v0_50_26` | `v0.50.26` | recipient visibility fix (`src/metabase/api/user.clj`) | — |
 | `infigo_v0_63_15` | `v0.63.15` | recipient visibility fix (`src/metabase/users_rest/api.clj`) | none |
-| `infigo_v0_64_6` | `v0.64.6` | recipient visibility fix (`src/metabase/users_rest/api.clj`); builder-stage apt fix (`Dockerfile`) | none |
+| `infigo_v0_64_6` | `v0.64.6` | recipient visibility fix (`src/metabase/users_rest/api.clj`); mention visibility fix (`src/metabase/comments/db.clj`); builder-stage apt fix (`Dockerfile`) | none |
 
 **Carried-over set for the 0.50.26 → 0.63.15 rebase: 1 change, 0 dropped.**
 
@@ -104,6 +104,20 @@ not. Do not merge one into the other. Branch from the upstream tag and re-apply.
 The `/recipients` `cond` is unchanged between `v0.63.15` and `v0.64.6`, so the fix applied as-is.
 0.64 added a tenant filter inside `all`/`within-group`; the fix keeps it, since it only replaces the
 `case` dispatch. `user-visibility` is still gated behind `:email-restrict-recipients`.
+
+**Added on `infigo_v0_64_6` (the gap also exists on `infigo_v0_63_15`): 1 change.**
+
+- **`GET /api/comment/mentions`.** The @-mention list for Document comments filtered by
+  `user-visibility` too (`comments/db.clj`, `restrict-to-visible-users`), so on OSS any
+  authenticated user could list every active user's name and email. Non-admins now get the same
+  group-mates-plus-self set as `/recipients`. The endpoint needs no document to exist.
+
+Known and accepted: `/recipients` returns every user to a non-admin whose only group is All Users,
+because `users-with-columns` skips an empty `:user-ids` filter (`users/db.clj`, `(seq user-ids)`).
+Synced users always have a platform group and only admins can create users, so it is not guarded.
+
+Not changed: `src/metabase/mcp/v2/tools/document.clj` has the same `user-visibility` switch, but it
+is only reachable with AI features on, which Infigo disables (`ai-features-enabled?` false).
 
 **Build-only addition on `infigo_v0_64_6`: `Dockerfile`.** The builder stage is
 `FROM node:22-bullseye`. Debian 11 is EOL and `debian-security` still lists bullseye packages
