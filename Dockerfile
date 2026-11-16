@@ -9,8 +9,8 @@ ARG VERSION
 
 WORKDIR /home/node
 
-# Bullseye is EOL and its debian-security pool now 404s; builder stage only, not shipped.
-RUN sed -i "/debian-security/d" /etc/apt/sources.list
+# Bullseye is EOL; its security updates moved to archive.debian.org.
+RUN sed -i 's|http://deb.debian.org/debian-security|http://archive.debian.org/debian-security|' /etc/apt/sources.list
 
 RUN apt-get update && apt-get upgrade -y && apt-get install wget apt-transport-https gpg curl git -y \
     && wget -qO - https://packages.adoptium.net/artifactory/api/gpg/key/public | gpg --dearmor | tee /etc/apt/trusted.gpg.d/adoptium.gpg > /dev/null \

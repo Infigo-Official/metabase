@@ -108,8 +108,9 @@ The `/recipients` `cond` is unchanged between `v0.63.15` and `v0.64.6`, so the f
 **Build-only addition on `infigo_v0_64_6`: `Dockerfile`.** The builder stage is
 `FROM node:22-bullseye`. Debian 11 is EOL and `debian-security` still lists bullseye packages
 whose pool files now return 404 (e.g. `libasound2`, pulled in by `temurin-25-jdk`), so
-`docker build` fails at the first `apt-get install`. The fork drops the `debian-security` source in
-the builder stage only; packages resolve from the main bullseye archive. The runtime image is
+`docker build` fails at the first `apt-get install`. Debian moved those files to
+`archive.debian.org/debian-security`, so the fork repoints that source there in the builder stage;
+the builder keeps every security fix published for bullseye. The runtime image is
 `eclipse-temurin:25-jre-alpine` and contains no builder apt packages, so nothing shipped changes.
 Drop this line once upstream moves the builder off bullseye.
 
