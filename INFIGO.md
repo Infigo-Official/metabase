@@ -88,7 +88,7 @@ File: `src/metabase/users_rest/api.clj`, in `defendpoint :get "/recipients"`.
 |------|------|---------|---------|
 | `infigo_v0_50_26` | `v0.50.26` | recipient visibility fix (`src/metabase/api/user.clj`) | — |
 | `infigo_v0_63_15` | `v0.63.15` | recipient visibility fix (`src/metabase/users_rest/api.clj`) | none |
-| `infigo_v0_64_6` | `v0.64.6` | recipient visibility fix (`src/metabase/users_rest/api.clj`) | none |
+| `infigo_v0_64_6` | `v0.64.6` | recipient visibility fix (`src/metabase/users_rest/api.clj`); builder-stage apt fix (`Dockerfile`) | none |
 
 **Carried-over set for the 0.50.26 → 0.63.15 rebase: 1 change, 0 dropped.**
 
@@ -104,6 +104,14 @@ not. Do not merge one into the other. Branch from the upstream tag and re-apply.
 The `/recipients` `cond` is unchanged between `v0.63.15` and `v0.64.6`, so the fix applied as-is.
 0.64 added a tenant filter inside `all`/`within-group`; the fix keeps it, since it only replaces the
 `case` dispatch. `user-visibility` is still gated behind `:email-restrict-recipients`.
+
+**Build-only addition on `infigo_v0_64_6`: `Dockerfile`.** The builder stage is
+`FROM node:22-bullseye`. Debian 11 is EOL and `debian-security` still lists bullseye packages
+whose pool files now return 404 (e.g. `libasound2`, pulled in by `temurin-25-jdk`), so
+`docker build` fails at the first `apt-get install`. The fork drops the `debian-security` source in
+the builder stage only; packages resolve from the main bullseye archive. The runtime image is
+`eclipse-temurin:25-jre-alpine` and contains no builder apt packages, so nothing shipped changes.
+Drop this line once upstream moves the builder off bullseye.
 
 The same rule holds: `v0.63.15` and `v0.64.6` are diverged release branches (merge base
 `f57fdc82586`; `v0.63.15` carries 297 commits `v0.64.6` does not). Branch from the tag, re-apply.
