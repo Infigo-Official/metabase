@@ -12,12 +12,12 @@
 services:
   metabase:
     container_name: infigo-metabase-dev
-    image: infigo-metabase:${MB_VERSION:-v0.64.6}
+    image: infigo-metabase:${MB_VERSION:-v0.64.8}
     build:
       context: .
       args:
         MB_EDITION: oss
-        VERSION: ${MB_VERSION:-v0.64.6}
+        VERSION: ${MB_VERSION:-v0.64.8}
     depends_on:
       db:
         condition: service_healthy

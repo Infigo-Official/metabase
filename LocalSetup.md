@@ -1,6 +1,6 @@
-# Metabase Local Setup (v0.64.6)
+# Metabase Local Setup (v0.64.8)
 
-These instructions walk you through cloning Metabase, building the **v0.64.6** image, and running it locally with Docker Compose.
+These instructions walk you through cloning Metabase, building the **v0.64.8** image, and running it locally with Docker Compose.
 
 > **NOTE!** Locally this won't run properly unless you have adjusted the crlf line endings that conform to the windows machine and there might be issues with that during the docker build image stage. This is why the test of all of this was done in Ubuntu VM that is inherently supports Linux and lf issues are non existent.
 
@@ -30,7 +30,7 @@ These instructions walk you through cloning Metabase, building the **v0.64.6** i
  cd metabase
 
 # 2. Check out the Infigo fork branch
- git checkout infigo_v0_64_6
+ git checkout infigo_v0_64_8
 ```
 
 ---
@@ -70,12 +70,12 @@ Cloning inside a Linux VM or WSL avoids all of this: a native Linux checkout is 
 
 Inside the repository root run:
 
-Build the OSS edition of Metabase v0.64.6
+Build the OSS edition of Metabase v0.64.8
 
 You can run just docker compose or do it manually using this command. Otherwise just skip to the next step
 
 ```bash
-   docker build -t infigo-metabase:v0.64.6 --build-arg MB_EDITION=oss --build-arg VERSION=local-$(git rev-parse --short HEAD) .
+   docker build --pull -t infigo-metabase:v0.64.8 --build-arg MB_EDITION=oss --build-arg VERSION=local-$(git rev-parse --short HEAD) .
 ```
 
 🕒 The build typically completes in **15–30 minutes** (depending on network speed & CPU).
@@ -108,12 +108,12 @@ version: "3.9"
 
 services:
   metabase:
-    image: infigo-metabase:v0.64.6
+    image: infigo-metabase:v0.64.8
     build:
       context: .                # repo root
       args:
         MB_EDITION: oss
-        VERSION: v0.64.6
+        VERSION: v0.64.8
     container_name: metabase-dev
     environment:
       MB_DB_TYPE: postgres
@@ -182,4 +182,4 @@ docker compose down -v
 
 ---
 
-🎉 You now have Metabase **v0.64.6** running locally. Happy exploring!
+🎉 You now have Metabase **v0.64.8** running locally. Happy exploring!

@@ -1,7 +1,7 @@
 # Infigo Metabase Fork
 
-**Base Release:** `v0.64.6` (upstream commit `1bfb3106a35f1d8b1fe42e0814066eb859a1ead3`)
-**Branch:** `infigo_v0_64_6`
+**Base Release:** `v0.64.8` (upstream commit `9fbf805af6795b3c64828232fa29c61d40c7a71b`)
+**Branch:** `infigo_v0_64_8` (previously `infigo_v0_64_6`)
 **Commit Reference:** `60caaa60e9b256c4c62a4852d998267fa44fb578`
 **Venture Ticket Number:** VENTURE-14575 (originally VENTURE-7985 on `infigo_v0_50_26`)
 
@@ -89,6 +89,7 @@ File: `src/metabase/users_rest/api.clj`, in `defendpoint :get "/recipients"`.
 | `infigo_v0_50_26` | `v0.50.26` | recipient visibility fix (`src/metabase/api/user.clj`) | — |
 | `infigo_v0_63_15` | `v0.63.15` | recipient visibility fix (`src/metabase/users_rest/api.clj`) | none |
 | `infigo_v0_64_6` | `v0.64.6` | recipient visibility fix (`src/metabase/users_rest/api.clj`); mention visibility fix (`src/metabase/comments/db.clj`); builder-stage apt fix (`Dockerfile`) | none |
+| `infigo_v0_64_8` | `v0.64.8` | recipient visibility fix (`src/metabase/users_rest/api.clj`); mention visibility fix (`src/metabase/comments/db.clj`); builder-stage apt fix (`Dockerfile`) | none (same set, cherry-picked) |
 
 **Carried-over set for the 0.50.26 → 0.63.15 rebase: 1 change, 0 dropped.**
 
@@ -119,6 +120,15 @@ Synced users always have a platform group and only admins can create users, so i
 Not changed: `src/metabase/mcp/v2/tools/document.clj` has the same `user-visibility` switch, but it
 is only reachable with AI features on, which Infigo disables (`ai-features-enabled?` false).
 
+**Carried-over set for the 0.64.6 → 0.64.8 move: 5 commits, 0 dropped, no conflicts.**
+
+`v0.64.8` (2026-11-18) is a patch release on the same release branch, so `infigo_v0_64_8` is the tag
+plus the five `infigo_v0_64_6` commits cherry-picked unchanged. The reason for the move is upstream's
+Java4Shell mitigation (CVE-2026-114938, OpenJDK Base64 intrinsic heap overflow): `bin/docker/run_metabase.sh`
+now adds `-XX:-UseBASE64Intrinsics` to `JAVA_OPTS`. The full fix is a patched JDK in the runtime image
+(`eclipse-temurin:25-jre-alpine` at 25.0.5.1 or later), so rebuild with `--pull`; keep the flag until
+upstream drops it.
+
 **Build-only addition on `infigo_v0_64_6`: `Dockerfile`.** The builder stage is
 `FROM node:22-bullseye`. Debian 11 is EOL and `debian-security` still lists bullseye packages
 whose pool files now return 404 (e.g. `libasound2`, pulled in by `temurin-25-jdk`), so
@@ -141,10 +151,10 @@ Each upgrade produces a pair of branches, mirroring the layout established for 0
 
 | Branch | Contents |
 |--------|----------|
-| `v0.64.6` | pristine snapshot of the upstream tag, zero Infigo commits |
-| `infigo_v0_64_6` | the above plus the Infigo change set |
+| `v0.64.8` | pristine snapshot of the upstream tag, zero Infigo commits |
+| `infigo_v0_64_8` | the above plus the Infigo change set |
 
-`git diff refs/heads/v0.64.6..infigo_v0_64_6` therefore always prints exactly the carried-over set
+`git diff refs/heads/v0.64.8..infigo_v0_64_8` therefore always prints exactly the carried-over set
 plus the fork's own docs and compose file.
 
 Commit: https://github.com/Infigo-Official/metabase/commit/60caaa60e9b256c4c62a4852d998267fa44fb578
@@ -156,13 +166,13 @@ Commit: https://github.com/Infigo-Official/metabase/commit/60caaa60e9b256c4c62a4
    ```bash
    git clone https://github.com/Infigo-Official/metabase.git
    cd metabase
-   git checkout infigo_v0_64_6
+   git checkout infigo_v0_64_8
    ```
 
 2. Confirm the only code change is one file:
 
    ```bash
-   git diff --stat refs/heads/v0.64.6..infigo_v0_64_6 -- src
+   git diff --stat refs/heads/v0.64.8..infigo_v0_64_8 -- src
    # src/metabase/users_rest/api.clj | 13 +++----------
    ```
 
