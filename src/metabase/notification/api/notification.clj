@@ -14,6 +14,7 @@
    [metabase.notification.core :as notification]
    [metabase.notification.db :as notification.db]
    [metabase.notification.models :as models.notification]
+   [metabase.users.models.user :as user]
    [metabase.util :as u]
    [metabase.util.malli :as mu]
    [metabase.util.malli.registry :as mr]
@@ -82,6 +83,27 @@
    (when (or (some handler-touches-template? handlers)
              (some handler-touches-template? existing-handlers))
      (api/check-403 (mi/can-write? :model/ChannelTemplate)))))
+
+(defn- recipient-key
+  [{:keys [type user_id permissions_group_id]}]
+  [(keyword type) user_id permissions_group_id])
+
+(defn- check-recipients-visible!
+  "Infigo: a non-admin may add only group-mates or themselves as user recipients, and no group recipients,
+  the same set /api/user/recipients offers. Typed email addresses (raw-value) and templates are not
+  restricted. Recipients already on `existing-handlers` stay allowed, so older notifications remain editable."
+  ([handlers] (check-recipients-visible! handlers nil))
+  ([handlers existing-handlers]
+   (when-not api/*is-superuser?*
+     (let [existing (into #{} (comp (mapcat :recipients) (map recipient-key)) existing-handlers)
+           added    (remove (comp existing recipient-key) (mapcat :recipients handlers))]
+       (when (seq added)
+         (let [visible (-> (user/same-groups-user-ids api/*current-user-id*) set (conj api/*current-user-id*))]
+           (doseq [recipient added]
+             (case (keyword (:type recipient))
+               :notification-recipient/group (api/check-403 false)
+               :notification-recipient/user  (api/check-403 (contains? visible (:user_id recipient)))
+               nil))))))))
 
 (defn get-notification
   "Get a notification by id."
@@ -177,6 +199,7 @@
   "Create a notification with permission checks, hydration, email notifications, and event publishing."
   [notification-info :- ::CreateNotificationParams]
   (api/create-check :model/Notification notification-info)
+  (check-recipients-visible! (:handlers notification-info))
   (let [notification (models.notification/hydrate-notification
                       (models.notification/create-notification!
                        (dissoc notification-info :handlers :subscriptions)
@@ -256,6 +279,7 @@
   (let [existing-notification (get-notification id)]
     (api/update-check existing-notification body)
     (check-handler-templates! (:handlers body) (:handlers existing-notification))
+    (check-recipients-visible! (:handlers body) (:handlers existing-notification))
     (let [body (body-with-authoritative-ids body existing-notification)]
       (models.notification/update-notification! existing-notification body)
       (u/prog1 (get-notification id)
@@ -313,6 +337,7 @@
   [_route _query body :- ::CreateNotificationParams request]
   (check-no-resource-templates! (:handlers body))
   (check-inline-channels! (:handlers body))
+  (check-recipients-visible! (:handlers body))
   (api/create-check :model/Notification body)
   (models.notification/validate-email-handlers! (:handlers body))
   (let [notification (-> body

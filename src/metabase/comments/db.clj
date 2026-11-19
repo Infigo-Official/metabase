@@ -9,7 +9,6 @@
    [metabase.lib.schema.id :as lib.schema.id]
    [metabase.users.core :as users]
    [metabase.users.models.user :as user]
-   [metabase.users.settings :as users.settings]
    [metabase.util.honey-sql-2 :as h2x]
    [metabase.util.malli :as mu]
    [metabase.util.malli.schema :as ms]
@@ -102,18 +101,16 @@
 
 (defn- restrict-to-visible-users
   "Narrow `clauses` (from `user/filter-clauses`) to the users the current user should see: superusers see
-  everyone; everyone else is limited to their own tenant and further narrowed by the `user-visibility`
-  setting."
+  everyone; everyone else is limited to their own tenant and to users sharing a group with them.
+
+  Infigo: always group-mates, matching /api/user/recipients; the OSS build pins `user-visibility` to :all."
   [clauses]
   (if api/*is-superuser?*
     clauses
     (let [clauses (sql.helpers/where clauses [:= :tenant_id (:tenant_id @api/*current-user*)])]
-      (case (users.settings/user-visibility)
-        :all   clauses
-        :group (sql.helpers/where clauses [:in :core_user.id (-> (user/same-groups-user-ids api/*current-user-id*)
-                                                                 set
-                                                                 (conj api/*current-user-id*))])
-        :none  (sql.helpers/where clauses [:= :core_user.id api/*current-user-id*])))))
+      (sql.helpers/where clauses [:in :core_user.id (-> (user/same-groups-user-ids api/*current-user-id*)
+                                                        set
+                                                        (conj api/*current-user-id*))]))))
 
 (mu/defn mentionable-users
   "The id, first name, last name, and email of the active Users the current user may @mention, ordered by name
