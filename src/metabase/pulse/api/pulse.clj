@@ -41,6 +41,28 @@
   [alert]
   (m/find-first #(= :email (keyword (:channel_type %))) (:channels alert)))
 
+(defn- visible-recipient-ids
+  "Infigo: the current user plus the users sharing a group other than All Users with them, the set
+  /api/user/recipients offers a non-admin."
+  []
+  (let [group-ids (t2/select-fn-set :group_id :model/PermissionsGroupMembership
+                                    :user_id  api/*current-user-id*
+                                    :group_id [:not= (:id (perms/all-users-group))])]
+    (cond-> #{api/*current-user-id*}
+      (seq group-ids) (into (t2/select-fn-set :user_id :model/PermissionsGroupMembership
+                                              :group_id [:in group-ids])))))
+
+(defn- check-recipients-visible!
+  "Infigo: a non-admin may add only group-mates or themselves as Metabase-user recipients. Typed email
+  addresses are not restricted. Recipients already on `existing-pulse` stay allowed, so older
+  subscriptions remain editable."
+  [channels existing-pulse]
+  (when-not api/*is-superuser?*
+    (let [existing (set (keep :id (:recipients (email-channel existing-pulse))))
+          added    (remove existing (keep :id (mapcat :recipients channels)))]
+      (when (seq added)
+        (api/check-403 (every? (visible-recipient-ids) added))))))
+
 ;; TODO (Cam 10/28/25) -- fix this endpoint so it uses kebab-case for query parameters for consistency with the rest
 ;; of the REST API
 ;;
@@ -96,6 +118,7 @@
   [cards channels pulse-data]
   (perms/check-has-application-permission :subscription false)
   (api/create-check :model/Pulse (assoc pulse-data :cards cards))
+  (check-recipients-visible! channels nil)
   (t2/with-transaction [_conn]
     ;; Adding a new pulse at `collection_position` could cause other pulses in this collection to change position,
     ;; check that and fix it if needed
@@ -264,6 +287,7 @@
   (let [pulse-before-update (api/write-check (models.pulse/retrieve-pulse id))]
     (check-card-read-permissions cards)
     (collection/check-allowed-to-change-collection pulse-before-update pulse-updates)
+    (check-recipients-visible! (:channels pulse-updates) pulse-before-update)
     ;; if advanced-permissions is enabled, only superuser or non-admin with subscription permission can
     ;; update pulse's recipients
     (when (premium-features/enable-advanced-permissions?)
@@ -389,6 +413,9 @@
   ;; make sure any email addresses that are specified are allowed before sending the test Pulse.
   (doseq [channel channels]
     (pulse-channel/validate-email-domains channel))
+  ;; a test send of a saved subscription may keep the recipients it already has
+  (check-recipients-visible! channels (when-let [saved (some-> (:id body) models.pulse/retrieve-pulse)]
+                                        (when (mi/can-write? saved) saved)))
   (let [pulse (-> body
                   (assoc :creator_id api/*current-user-id*)
                   (assoc :disable_links

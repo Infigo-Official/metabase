@@ -89,7 +89,7 @@ File: `src/metabase/users_rest/api.clj`, in `defendpoint :get "/recipients"`.
 | `infigo_v0_50_26` | `v0.50.26` | recipient visibility fix (`src/metabase/api/user.clj`) | — |
 | `infigo_v0_63_15` | `v0.63.15` | recipient visibility fix (`src/metabase/users_rest/api.clj`) | none |
 | `infigo_v0_64_6` | `v0.64.6` | recipient visibility fix (`src/metabase/users_rest/api.clj`); mention visibility fix (`src/metabase/comments/db.clj`); builder-stage apt fix (`Dockerfile`) | none |
-| `infigo_v0_64_8` | `v0.64.8` | recipient visibility fix (`src/metabase/users_rest/api.clj`); mention visibility fix (`src/metabase/comments/db.clj`); builder-stage apt fix (`Dockerfile`) | none (same set, cherry-picked) |
+| `infigo_v0_64_8` | `v0.64.8` | recipient visibility fix (`src/metabase/users_rest/api.clj`); mention visibility fix (`src/metabase/comments/db.clj`); builder-stage apt fix (`Dockerfile`); saved-recipient guard (`src/metabase/notification/api/notification.clj`, `src/metabase/pulse/api/pulse.clj`) | none |
 
 **Carried-over set for the 0.50.26 → 0.63.15 rebase: 1 change, 0 dropped.**
 
@@ -128,6 +128,24 @@ Java4Shell mitigation (CVE-2026-114938, OpenJDK Base64 intrinsic heap overflow):
 now adds `-XX:-UseBASE64Intrinsics` to `JAVA_OPTS`. The full fix is a patched JDK in the runtime image
 (`eclipse-temurin:25-jre-alpine` at 25.0.5.1 or later), so rebuild with `--pull`; keep the flag until
 upstream drops it.
+
+**Added on `infigo_v0_64_8`: saved-recipient guard.** The `/recipients` fix only narrows the picker;
+the endpoints that save recipients took any id. A non-admin could, through the API alone:
+
+- add the All Users group to a notification (`POST /api/notification`) and have alerts delivered to
+  every user of every platform, Infigo staff included;
+- add another platform's user by `user_id`, who then reads the alert's card, native SQL included,
+  through `GET /api/notification/:id` although `GET /api/card/:id` returns 403;
+- add any user id to a dashboard subscription (`POST /api/pulse`); the response returns that user's
+  email, and an unknown id fails with a 500 and leaves an orphan Quartz trigger. This one is also
+  on `infigo_v0_50_26`.
+
+Non-admins can now add only group-mates or themselves as user recipients, and no group recipients:
+`POST /api/notification`, `PUT /api/notification/:id`, `POST /api/notification/send`,
+`POST /api/pulse`, `PUT /api/pulse/:id` and `POST /api/pulse/test`, otherwise 403. Typed email
+addresses (`notification-recipient/raw-value`, pulse `{:email}`) are not restricted, so anyone can
+still be emailed by address. Recipients a notification or subscription already has stay allowed on
+edit and on a test send, so existing ones remain editable. Superusers are not restricted.
 
 **Build-only addition on `infigo_v0_64_6`: `Dockerfile`.** The builder stage is
 `FROM node:22-bullseye`. Debian 11 is EOL and `debian-security` still lists bullseye packages
